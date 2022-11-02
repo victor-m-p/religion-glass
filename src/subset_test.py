@@ -78,19 +78,6 @@ df6 = pd.pivot(df5, index = "entry_id", columns = "q_id", values = 'answer_val')
 len(df6) # rows (religions): 746
 len(df6.columns) # columns (questions): 63
 
-''' out into torch '''
-A = df6.to_numpy()
-A.shape # perfect... 
-
-batch_size = 64 # hyperparameter we have to consider... (also train/test).
-train_loader = torch.utils.data.DataLoader( # takes map-style (e.g. numpy, dict)
-    A,
-    batch_size=1
-)
-
-for count, ele in enumerate(train_loader):
-    print(ele)
-
 ''' reproduce issue for simon: put in inspect data '''
 
 # read this 
