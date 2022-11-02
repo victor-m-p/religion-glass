@@ -35,9 +35,9 @@ with open("test_4.txt") as f:
     test_4 = f.read().splitlines()
 
 # data, init, final ...
-data_4 = eval(test_4[0])
-init_4 = eval(test_4[1])
-final_4 = eval(test_4[2])
+data_4 = np.array(eval(test_4[0]))
+init_4 = np.array(eval(test_4[1]))
+final_4 = np.array(eval(test_4[2]))
 
 # run it through the code 
 data_4 = np.array(data_4)
@@ -50,3 +50,7 @@ ax.plot(init_4, solver_4.multipliers, 'o')
 ax.plot([-1,1], [-1,1], 'k-')
 ax.set(xlabel='True parameters', ylabel='Solved parameters')
 plt.suptitle('vmp')
+
+solver_4.multipliers
+init_4
+final_4
