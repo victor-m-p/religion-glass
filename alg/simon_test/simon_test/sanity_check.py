@@ -26,9 +26,10 @@ solver_3.solve()
 # plot compare stuff 
 fig, ax = plt.subplots()
 ax.plot(init_3, solver_3.multipliers, 'o')
-ax.plot([-1,1], [-1,1], 'k-')
+ax.plot([-3,3], [-3,3], 'k-')
 ax.set(xlabel='True parameters', ylabel='Solved parameters')
-plt.suptitle('vmp')
+plt.suptitle('test_3.txt')
+plt.savefig("test_3.jpg")
 
 # try the other one 
 with open("test_4.txt") as f: 
@@ -47,10 +48,8 @@ solver_4.solve()
 # plot compare stuff 
 fig, ax = plt.subplots()
 ax.plot(init_4, solver_4.multipliers, 'o')
-ax.plot([-1,1], [-1,1], 'k-')
+ax.plot([-3,3], [-3,3], 'k-')
 ax.set(xlabel='True parameters', ylabel='Solved parameters')
-plt.suptitle('vmp')
+plt.suptitle('test_4.txt')
+plt.savefig("test_4.jpeg")
 
-solver_4.multipliers
-init_4
-final_4
