@@ -21,7 +21,7 @@ df = df[["q", "answers", "answer_val", "related_parent_q", "entry_name", "entry_
 len(df["q"].unique()) # 1672
 len(df["entry_id"].unique()) # 838
 
-# the answers we can currently use 
+# the answers we currently understand
 answer_vals = ["No", "Yes", "Field doesn't know", "I don't know"]
 
 # select the columns we will be using 

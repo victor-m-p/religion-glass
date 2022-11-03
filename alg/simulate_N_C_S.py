@@ -12,19 +12,19 @@ import numpy as np
 import itertools
 from sim_data import p_dist
 
-def main(n_nodes, n_samples): 
-    
-    print(n_nodes)
-    print(n_samples)
+def main(N, C, S): 
+    print(f"N: {N}")
+    print(f"C: {C}")
+    print(f"S: {S}")
     np.random.seed(0)  # standardize random seed
-    h = np.random.normal(scale=.1, size=n_nodes)           # random couplings (is the below, acc. to simon)
-    J = np.random.normal(scale=.1, size=n_nodes*(n_nodes-1)//2)  # random fields (is the above acc. to simon)
+    h = np.random.normal(scale=S, size=N)           # random couplings (is the below, acc. to simon)
+    J = np.random.normal(scale=S, size=N*(N-1)//2)  # random fields (is the above acc. to simon)
     hJ = np.concatenate((h, J))
-    n_states = 2**n_nodes
+    n_states = 2**N
     p = p_dist(h, J) # the new function
-    allstates = bin_states(n_nodes, True)  # all 2^n possible binary states in {-1,1} basis
-    sample = allstates[np.random.choice(range(2**n_nodes), # doesn't have to be a range
-                                        size=n_samples, # how many samples
+    allstates = bin_states(N, True)  # all 2^n possible binary states in {-1,1} basis
+    sample = allstates[np.random.choice(range(2**N), # doesn't have to be a range
+                                        size=C, # how many samples
                                         replace=True, # a value can be selected multiple times
                                         p=p)]  # random sample from p(s)
     ## declare and call solver.
@@ -33,7 +33,7 @@ def main(n_nodes, n_samples):
     
     ## save stuff
     def write_txt_multiline(filename, dataobj): 
-        with open(f"simon_data/{filename}_nodes_{n_nodes}_samples_{n_samples}.txt", "w") as txt_file:
+        with open(f"sim_data/{filename}_nodes_{N}_samples_{C}_scale_{S}.txt", "w") as txt_file:
             for line in dataobj: 
                 txt_file.write(str(line) + "\n")
 
@@ -48,10 +48,12 @@ def main(n_nodes, n_samples):
 if __name__ == '__main__':
     ap = argparse.ArgumentParser()
     ap.add_argument("-n", "--node_n", required = True, type = int)
-    ap.add_argument("-s", "--sample_n", required = True, type = int)
+    ap.add_argument("-c", "--civs_n", required = True, type = int)
+    ap.add_argument("-s", "--scale", required = True, type = float)
     args = vars(ap.parse_args())
 
     main(
-        n_nodes = args["node_n"],
-        n_samples = args["sample_n"]
+        N = args["node_n"],
+        C = args["civs_n"],
+        S = args["scale"]
     )
