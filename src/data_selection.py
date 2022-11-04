@@ -1,144 +1,121 @@
 import pandas as pd 
-from tqdm import tqdm
-import os
-import argparse 
-#import ndjson
-import json
-from pathlib import Path
-import re
-import pickle
 import seaborn as sns
 import matplotlib.pyplot as plt
-import itertools
 import numpy as np
+from helper_functions import fill_grid, assign_id, calc_nodes_samples
 
 # read data
 df = pd.read_csv("../data/df_raw.csv")
-
-# select the subset of columns we will be using for now
+## subset relevant columns
 df = df[["q", "answers", "answer_val", "related_parent_q", "entry_name", "entry_id", "end_year"]]
+## only overall questions (without parent)
+df = df[df["related_parent_q"].isna()]
+## assign new id (because their id is not unique)
+df = assign_id(df, "q", "q_id")
+## if more than one answer to a question sample 1. 
+df = df.sample(frac = 1.0).groupby(['q_id', 'entry_id']).head(1)
 
-# select only overall questions
-df = df[df["related_parent_q"].isna()] 
+# remove questions with non-binary answers
+## code answer types
+conditions = [
+    (df['answers'] == "Yes") | (df["answers"] == "No"),
+    (df['answers'] == "Field doesn't know") | (df["answers"] == "I don't know"),
+    (df['answers'] == "NaN")
+]
+choices = ["Yes/No", "Don't know", "NaN"]
+df['answer_types'] = np.select(conditions, choices, default="non-binary")
 
-# create unique q_id (the original q_id is not unique, but q is) 
-d_q_id = df.groupby('q').size().reset_index(name="count").sort_values("count", ascending = False)
-d_q_id["q_id"] = d_q_id.index
-d_q_id = d_q_id[["q", "q_id"]]
-df = df.merge(d_q_id, on = "q", how = "inner") 
+## find questions with non-binary answers and remove them
+df_ = df.groupby(['q_id', 'answer_types']).size().reset_index(name="count")
+df_ = df_[df_["answer_types"] == "non-binary"]
+df_ = df.merge(df_, how = "outer", indicator = True)
+df_b = df_[(df_._merge=="left_only")].drop("_merge", axis = 1)
 
-# if more than one answer per entry and per id then take random answer (small fraction)
-df = df.sample(frac = 1.0).groupby(['q_id', 'entry_id']).head(1) 
+## how many questions did we exclude?
+q_total = len(df["q_id"].drop_duplicates())
+q_binary = len(df_b["q_id"].drop_duplicates()) 
+print(f"total Q: {q_total}\nbinary Q: {q_binary} ({round(q_binary/q_total,2)})%")
 
-# nan values for combinations of (q_id, entry_id) that do not have answer
-def get_nan(df): 
-    d_q_id = df[["q_id"]].drop_duplicates()
-    l_q_id = list(d_q_id["q_id"]) 
-
-    d_e_id = df[["entry_id"]].drop_duplicates()
-    l_e_id = list(d_e_id["entry_id"]) 
-
-    l_comb = list(itertools.product(l_q_id, l_e_id))
-    d_comb = pd.DataFrame(l_comb, columns=["q_id", "entry_id"])
-
-    df = df.merge(d_comb, on = ["q_id", "entry_id"], how = "outer") 
-    df = df.fillna('NaN')
-
-    # keeping track
-    n_samples = len(df['entry_id'].unique())
-    n_nodes = len(df["q_id"].unique())
-
-    return df, n_samples, n_nodes
-
-df_nan, n_samples, n_nodes = get_nan(df)
+# create nodes X samples X NA
+## fill unanswered questions with NaN
+df_nan = fill_grid(df_b, "q_id", "entry_id", "NaN")
+n_samples = len(df_nan["entry_id"].drop_duplicates())
+n_nodes = len(df_nan["q_id"].drop_duplicates())
 print(f"number of civilizations (samples): {n_samples}")
 print(f"number of questions (nodes): {n_nodes}")
 
-# create column with: (Yes/No), (Don't know), (NaN) and (Other) 
-conditions = [
-    (df_nan['answers'] == "Yes") | (df_nan["answers"] == "No"),
-    (df_nan['answers'] == "Field doesn't know") | (df_nan["answers"] == "I don't know"),
-    (df_nan['answers'] == "NaN")
-]
+## nodes X samples = NA
+d_lineplot = calc_nodes_samples(
+    d = df_nan,
+    min_col = "NaN",
+    node_lst = [x+1 for x in range(n_nodes)],
+    sample_lst = [100, 300, 500, n_samples]
+)
 
-choices = ["Yes/No", "Don't know", "NaN"]
-df_nan['answers_1'] = np.select(conditions, choices, default="Other Answers")
-
-# create column with: (Other) vs. all known types (yes, no, don't know, nan)
-df_nan['answers_2'] = [x if x == "Other Answers" else "Known Answers" for x in df_nan["answers_1"]]
-
-# number of binary questions
-df_binary_g = df_nan.groupby(['q_id', 'answers_2']).size().reset_index(name="count").sort_values("count", ascending=False)
-df_binary_t = df_binary_g[df_binary_g["count"] == n_samples].drop_duplicates()
-n_binary_t = len(df_binary_t)
-frac_binary_q = round(n_binary_t/n_nodes, 2)
-print(f"N binary questions: {n_binary_t} ({frac_binary_q}%)")
-
-# only use these binary questions going forward
-binary_q_id = df_binary_t[["q_id"]]
-df_nan_b = df_nan.merge(binary_q_id, on = "q_id", how = "inner")
-df_nan_sub = df_nan_b.groupby(['q_id', 'answers_1']).size().reset_index(name = "count")
-df_nan_wide = pd.pivot(df_nan_sub, index = "q_id", columns = "answers_1", values = "count").fillna(0)
-
-## number of NA
-df_nan_number = df_nan_wide.sort_values('NaN', ascending=True).reset_index()
-
+## plot
 fig, axes = plt.subplots(1, 2, figsize = (10, 5))
 sns.countplot(
     ax = axes[0],
-    data = df_nan_b,
-    x = "answers_1",
-    order = df_nan_b["answers_1"].value_counts().index
+    data = df_nan,
+    x = "answer_types",
+    order = df_nan["answer_types"].value_counts().index
 )
-axes[0].set_title('Dist. of answer types for binary questions')
-axes[0].set_xlabel('Answer types')
-
-sns.histplot(
+axes[0].set(
+    xlabel = "answer types",
+    ylabel = "N",
+    title = "distribution of answer types"
+)
+sns.lineplot(
     ax = axes[1],
-    x = df_nan_number.index, 
-    weights = df_nan_number["NaN"], 
-    discrete=True)
-axes[1].set_title('N of CIVs not answering Q')
-axes[1].set_xlabel('Questions (nodes)')
-axes[1].set_ylabel('N CIVs with NaN')
-
-## trying to do the wild thing
-### ask Simon
-# .... do simple for now .... # 
-
-## over time across questions 
-df_entry_answers = df_nan_b.groupby(["entry_id", "answers_1"]).size().reset_index(name = "count")
-df_time_wide = pd.pivot(df_entry_answers, index = "entry_id", columns = "answers_1", values = "count").fillna(0)
-df_entry_year = df_nan_b[df_nan_b["end_year"] != "NaN"][["end_year", "entry_id"]].drop_duplicates()
-df_entry_year = df_entry_year.sample(frac = 1.0).groupby(["entry_id"]).head(1) # not unique year per entry...?!
-df_time_wide_x = df_time_wide.merge(df_entry_year, on = "entry_id", how = "inner")
-
-## N cultures over time ## 
-sns.histplot(
-    x = "end_year",
-    data = df_time_wide_x,
-    bins = 100
+    data = d_lineplot,
+    x = "n_nodes", 
+    y = "frac_na",
+    hue = "n_samples",
 )
+axes[1].set(
+    xlabel = "number of nodes (questions)",
+    ylabel = "fraction of NaN",
+    title = "samples x nodes curves",
+    ylim = (0, 1),
+)
+axes[1].legend(title = "N samples")
+plt.suptitle("Overview of NaN in BINARY questions", fontsize = 20)
+plt.tight_layout()
+plt.show();
+
+# Missing data over time 
+## over time across questions 
+df_e_a = df_nan.groupby(["entry_id", "answer_types"]).size().reset_index(name = "count")
+df_e_a = pd.pivot(df_e_a, index = "entry_id", columns = "answer_types", values = "count").fillna(0)
+df_e_y = df_nan[df_nan["end_year"] != "NaN"][["end_year", "entry_id"]].drop_duplicates()
+df_e_y = df_e_y.sample(frac = 1.0).groupby(["entry_id"]).head(1) # not unique year per entry...?!
+df_t = df_e_a.merge(df_e_y, on = "entry_id", how = "inner")
 
 ## completeness of data over time (grouped by cardinality)
-df_time_wide_x["q_cut"] = pd.qcut(df_time_wide_x["end_year"], q = 10)
-df_time_wide_x = df_time_wide_x.sort_values('q_cut', ascending=True)
+df_t["q_cut"] = pd.qcut(df_t["end_year"], q = 10)
+df_t = df_t.sort_values('q_cut', ascending=True)
 
 # fractions (not the most pretty)
-df_time_wide_x["frac_nan"] = df_time_wide_x["NaN"] / n_binary_t
-df_time_wide_x["frac_yn"] = df_time_wide_x["Yes/No"] / n_binary_t 
-df_time_wide_x["frac_dk"] = df_time_wide_x["Don't know"] / n_binary_t
+df_t["frac_nan"] = df_t["NaN"] / n_nodes
+df_t["frac_yn"] = df_t["Yes/No"] / n_nodes
+df_t["frac_dk"] = df_t["Don't know"] / n_nodes
 
-# we need new index (not the most pretty)
-df_index = df_time_wide_x[["q_cut"]].drop_duplicates()
-df_index["index"] = range(10)
-df_time_wide_x = df_time_wide_x.merge(df_index, on = "q_cut", how = "inner")
+# we need new index 
+df_i = df_t[["q_cut"]].drop_duplicates()
+df_i["index"] = range(10)
+df_t = df_t.merge(df_i, on = "q_cut", how = "inner")
 
-# only factions and long 
-df_time_frac = df_time_wide_x[["q_cut", "index", "entry_id", "frac_nan", "frac_yn", "frac_dk"]]
+# only fractions and long 
+df_t_f = df_t[[
+    "q_cut", 
+    "index", 
+    "entry_id", 
+    "frac_nan", 
+    "frac_yn", 
+    "frac_dk"]]
 
-df_time_frac_long = pd.wide_to_long(
-    df_time_frac,
+df_t_f_l = pd.wide_to_long(
+    df_t_f,
     stubnames = "frac",
     i = "entry_id",
     j = "answer",
@@ -147,20 +124,41 @@ df_time_frac_long = pd.wide_to_long(
 ).reset_index()
 
 # prepare plot 
-len_id = len(df_time_frac_long[["q_cut"]].drop_duplicates())
-x = df_time_frac_long["q_cut"].unique().to_list()
-df_time_frac_long["answer"] = df_time_frac_long["answer"].replace(["nan", "dk", "yn"], ["NaN", "Don't know", "Yes/No"])
+len_id = len(df_t_f_l[["q_cut"]].drop_duplicates())
+x = df_t_f_l["q_cut"].unique().to_list()
+df_t_f_l["answer"] = df_t_f_l["answer"].replace(
+    ["nan", "dk", "yn"], 
+    ["NaN", "Don't know", "Yes/No"])
 
 # plot it 
-fig, ax = plt.subplots(figsize=(10, 5))
+fig, axes = plt.subplots(1, 2, figsize=(10, 5))
+
+sns.histplot(
+    ax = axes[0],
+    x = "end_year",
+    data = df_t,
+    bins = 100
+)
+axes[0].set(
+    xlabel = "End year (100 bins)",
+    ylabel = "Number of CIVs",
+    title = "Religions over time (end year)"
+)
+
 sns.lineplot(
-    data = df_time_frac_long,
+    ax = axes[1],
+    data = df_t_f_l,
     x = "index",
     y = "frac",
     hue = "answer"
 )
-ax.set_xticks(range(len_id), x)
-ax.set_xticklabels(x, rotation = 30)
-ax.set_xlabel('Year (equal N of CIVs in each)')
-ax.set_ylabel('Fraction of answers')
-plt.suptitle("Bias over time")
+axes[1].set(
+    xlabel = "End year (equal N of CIVs in each bin)",
+    ylabel = "Fraction of answers",
+    title = "Answer types over time"
+)
+axes[1].set_xticks(range(len_id), x)
+axes[1].set_xticklabels(x, rotation = 30)
+plt.suptitle("Old and New religions", fontsize = 20)
+plt.tight_layout()
+plt.show();

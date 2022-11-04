@@ -22,8 +22,6 @@ import itertools
 from itertools import permutations
 
 ### issue: end_year not consistent ###
-
-
 n_sub = 400
 
 # read this (have some problem with dtype in answer_val)
