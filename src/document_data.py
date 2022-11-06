@@ -1,35 +1,115 @@
 import pandas as pd 
 from tqdm import tqdm
-import os
-import argparse 
-#import ndjson
-import json
 from pathlib import Path
 import re
-import pickle
 import numpy as np
-import torch
-import torch.utils.data
-import torch.nn as nn
-import torch.nn.functional as F
-import torch.optim as optim
-from torch.autograd import Variable
-from torchvision import datasets, transforms
-from torchvision.utils import make_grid , save_image
 import matplotlib.pyplot as plt
-# import itertools package
 import itertools
 from itertools import permutations
 
-### issue: end_year not consistent ###
-n_sub = 400
-
-# read this (have some problem with dtype in answer_val)
+# read data & select overall questions for now
 df = pd.read_csv("../data/df_raw.csv")
-len(df) # 172.070
 
-# select the columns we will be using 
-df_sub = df[["q", "answers", "answer_val", "related_parent_q", "entry_name", "entry_id"]]
+# 
+def single_size(df, c1, ascending = False): 
+    return df.groupby(c1).size().reset_index(name = "count").sort_values("count", ascending = ascending)
+
+def groupby_size(df, c1, c2, ascending = False): 
+    df_grouped = df.groupby([c1, c2]).size().reset_index(name = 'count').sort_values('count', ascending = ascending)
+    return df_grouped 
+
+def distinct_size(df, c1, c2, ascending = False): 
+    df = df[[c1, c2]].drop_duplicates()
+    d_c1 = df.groupby(c1).size().reset_index(name = 'count').sort_values("count", ascending = ascending)
+    d_c2 = df.groupby(c2).size().reset_index(name = 'count').sort_values("count", ascending = ascending)
+    return d_c1, d_c2 
+
+# mapping between entry_id and entry_name is not unique: 
+## the pattern is that the same entry name can be entered multiple times
+## each entry then has a unique entry_id. 
+## these are not actually independent, so we need to decide what to do here. 
+## typically same expert but different periods. 
+## see e.g. (https://religiondatabase.org/browse/search?q=West%20Bengal,%20India)
+e_id, e_name = distinct_size(df, 'entry_id', 'entry_name')
+e_id.head(5) # entry_id: is unique 
+e_name.head(5) # entry_name: not unique
+
+# mapping not unique between question and question_id: 
+## the pattern (generally) is that the same question can be answered multiple times
+## for instance "Specify" might be a possible question to answer in multiple locations 
+## and each of these instances will have a unique question_id.
+## this actually means that I have been doing it wrong.  
+q_id, q = distinct_size(df, "q_id", "q")
+q_id.head(5) # almost unique
+q.head(5) # not unique
+
+## an exception is q_id = 4786 which maps to two questions
+## however, these questions do appear to *actually* be the same 
+## this appears to be a mistake in the question (or that the question has changed)
+## for more on question quality see below
+df[df["q_id"] == 4786][["q_id", "q", "entry_id"]].head(5)
+
+## The question "Other" appears multiple times within the same
+## entry_id, but with different q_id. 
+df[df["q"] == "Other"][["q_id", "q", "entry_id"]].head(5)
+
+df[df["q"] == "Other"].groupby(["q_id", "q", "entry_id"]).size().reset_index(name = "count").sort_values("count", ascending=False)
+
+# mistakes in questions
+## we notice lots of issues: 
+## spelling mistakes (e.g. "Is this palce a tomb/burial:")
+## questions that start with asterisks (e.g. *...)
+## these are actual mistakes in the data. 
+pd.set_option('display.max_colwidth', None)
+q_quality = single_size(df, "q")
+
+## questions with asterisks 
+q_quality = q_quality.assign(asterisk = lambda x: x["q"].str.contains("\*"))
+q_asterisk = q_quality[q_quality["asterisk"] == True]
+q_asterisk = df.merge(q_asterisk, on = "q", how = "inner")[["q", "entry_id", "entry_name", "expert"]]
+q_asterisk # entry_id 1025
+
+### do these same questions appear WITHOUT spelling mistakes 
+### in other places? Yes, they are! 
+q_asterisk_c = pd.DataFrame([re.sub("\*", "", x) for x in q_asterisk["q"]], columns = ["q"])
+df_asterisk = df.merge(q_asterisk_c, on = "q", how = "inner")[["q", "entry_id", "entry_name"]]
+df_asterisk.head(5)
+
+## questions with spelling 
+### harder to detect automatically, so here we
+### will just show the problem for one particular case
+q_spelling = df[df["q"] == "Is this palce a tomb/burial:"][["q", "q_id", "entry_id", "entry_name", "expert"]]
+q_spelling.head(5)
+### let's check whether this question exists with correct spelling for other CIVs.
+df_spelling = df[df["q"] == "Is this place a tomb/burial:"][["q", "q_id", "entry_id", "entry_name"]]
+df_spelling.head(5) # again, yes. 
+### the saving grace is question_id. 
+df_spelling2 = df[df["q_id"] == 5832][["q", "q_id", "entry_id"]]
+
+## DOUBLE CHECK THAT THE ABOVE SAVES US 
+## DOUBLE CHECK "PARENT" QUESTION- FEELS LIKE THERE ARE TOO MANY QUESTIONS.
+
+df.groupby('related_parent_q')
+
+
+## is this saved by question id? 
+import re
+re.sub("\*", "", "*this is great")
+
+## questions with spelling mistakes 
+
+q_spelling = df[df["q"] == "*Is education gendered with respect to this text and larger textual tradition?"]
+q_spelling["entry_id"]
+test = df[df["entry_id"] == 1025]["q"].reset_index()
+test.head(10)
+
+q_spelling
+# Q unique per entry?
+q_e_id = groupby_size(df, 'q', 'entry_id')
+q_e_id
+
+
+# end year not consistent
 
 # only the overall questions 
 df1 = df_sub[df_sub["related_parent_q"].isna()] 
@@ -39,45 +119,6 @@ len(df1) # 56.012 (around 30% retained)
 answer_vals = ["No", "Yes", "Field doesn't know", "I don't know"]
 df2 = df1.loc[df1['answers'].isin(answer_vals)] 
 len(df2) # 51.063 (more than 90% retained)
-
-# assign each q to an index (q_id is inconsistent)
-d_q_id = df2.groupby('q').size().reset_index(name="count").sort_values("count", ascending = False)
-d_q_id_20 = d_q_id[d_q_id["count"] >= n_sub].reset_index(drop = True)
-d_q_id_20["q_id"] = d_q_id_20.index
-d_q_id_20 = d_q_id_20[["q", "q_id"]]
-
-# joing back only those 
-df3 = df2.merge(d_q_id_20, on = "q", how = "inner")
-len(df3) # 29.854 (>50% retained)
-
-# sample randomly if more than one answer per question for each entry. (slow)
-df4 = df3.groupby(['q_id', 'entry_id'], group_keys=False).apply(lambda x: x.sample(1))
-len(df4) # 29.621 (almost all retained)
-
-# put this into matrices 
-## https://yizhepku.github.io/2020/12/26/dataloader.html
-## can be dictionary, numpy array, etc. 
-
-# actually we have to construct the list for all of them..
-d_q_id = df4[["q_id"]].drop_duplicates()
-l_q_id = list(d_q_id["q_id"]) # n = 63
-
-d_e_id = df4[["entry_id"]].drop_duplicates()
-l_e_id = list(d_e_id["entry_id"]) # n = 746
-
-l_comb = list(itertools.product(l_q_id, l_e_id))
-d_comb = pd.DataFrame(l_comb, columns=["q_id", "entry_id"])
-
-# outer join with data and fill with some value
-# for now we will just fill with NA. 
-df5 = df4.merge(d_comb, on = ["q_id", "entry_id"], how = "outer")
-len(df5) # 46.998
-len(d_comb) # 46.998 
-
-''' pivot then '''
-df6 = pd.pivot(df5, index = "entry_id", columns = "q_id", values = 'answer_val')
-len(df6) # rows (religions): 746
-len(df6.columns) # columns (questions): 63
 
 ''' reproduce issue for simon: put in inspect data '''
 
