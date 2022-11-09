@@ -48,7 +48,7 @@ typedef struct {
 
 gsl_rng *rng();
 
-samples *new_data();
+samples *new_data(); // this does something?
 void load_data(char *filename, samples *data);
 void init_params(samples *data);
 void sort_and_filter(samples *data);

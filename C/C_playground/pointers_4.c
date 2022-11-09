@@ -2,15 +2,20 @@
 #include<string.h>
 //https://www.youtube.com/watch?v=zuegQmMdy8M
 
+void print(const char* C){ // const ensures that we cannot modify C
+    int i = 0;
+    while(*C != '\0')
+    {
+        //printf("%c", C[i]);
+        printf("%c\n", *C);
+        printf("%p\n", C);
+        C++;
+    }
+    printf("\n");
+}
 int main(){
-    char C[4];
-    C[0] = 'J';
-    C[1] = 'O';
-    C[2] = 'H';
-    C[3] = 'N';  
-    printf("%s\n", C); // actually looks like we don't need to terminate (as he says in the vid.)
-    
-    int len = strlen(C);
-    printf("length = %d\n", len);
+    //char *C = "Hello"; // constant (cannot be changed)
+    char C[20] = "Hello";
+    print(C);
     return 0;
 }
