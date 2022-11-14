@@ -1,32 +1,49 @@
-compute_k(data, 0);
-printf("Base solution: %lf\n", data->k);
+#include <stdio.h>
+#include <stdlib.h>
+#include <gsl/gsl_rng.h>
 
-double par2[15] = { -0.07097891397915604,0.09037968768574217,0.03953863835261531,0.004395573116284663,0.04214144415742476,0.04975525546955612,0.16313034585464473,0.0984049625571094,0.06165209798185289,0.08770363053852132,0.16436445032747424,0.050891948884650234,0.12236974326387334,0.237981027967441,0.19452103400974274 };
-data->big_list = par2; 
-compute_k(data, 0);		
-printf("Eddie solution: %lf\n", data->k);
-printf("Fields\n");
-for(i=data->h_offset;i<data->n_params;i++) {
-	printf("%lf ", data->big_list[i]);
+int main () {
+
+	int i, j;
+	gsl_rng *r; 
+	
+	// setup 
+	int m=4;
+	int n=3;
+	int **obs;
+	int **obs_raw;
+	int *n_blanks;
+	int **blanks;
+
+	obs=(int **)malloc(m*sizeof(int *));
+	obs_raw=(int **)malloc(m*sizeof(int *));
+
+	n_blanks=(int *)malloc(m*sizeof(int));
+	blanks=(int **)malloc(m*sizeof(int *));
+
+	for(i=0;i<m;i++) {
+		obs[i]=(int *)malloc(n*sizeof(int));
+		obs_raw[i]=(int *)malloc(n*sizeof(int));
+		n_blanks[i]=0;
+		blanks[i]=NULL;
+		for(j=0;j<n;j++) {
+			obs[i][j]=(j); // 
+			obs_raw[i][j]=obs[i][j];
+		}
+	}
+
+	printf("**obs: %d\n", **obs); // value
+	printf("*obs: %p\n", *obs); // pointer
+	printf("obs: %p\n", obs); // pointer
+	printf("*obs[0]: %d\n", *obs[0]); // value
+
+	// indexing the whole way in // 
+	printf("obs[0][0]: %d\n", obs[1][0]); // value = 0
+	printf("obs[0][1]: %d\n", obs[1][1]); // value = 1
+	printf("obs[0][2]: %d\n", obs[1][2]); // value = 2
+	printf("obs[0][3]: %d\n", obs[1][3]); // value = 0 (runs out...)
+	//h_offset=n*(n-1)/2;
+	//n_params=n*(n-1)/2+n;
+ 	return 0;
 }
-printf("\n");
-
-printf("Pairs\n");
-for(i=0;i<data->h_offset;i++) {
-	printf("%lf ", data->big_list[i]);
-}
-printf("\n\n");
-
-simple_minimizer(data);
-
-printf("Fields\n");
-for(i=data->h_offset;i<data->n_params;i++) {
-	printf("%lf ", data->big_list[i]);
-}
-printf("\n");
-
-printf("Pairs\n");
-for(i=0;i<data->h_offset;i++) {
-	printf("%lf ", data->big_list[i]);
-}
-printf("\n");
+ 

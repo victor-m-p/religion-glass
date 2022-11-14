@@ -17,7 +17,7 @@ int main (int argc, char *argv[]) {
 		
 	} else {
 		
-		data=new_data();
+		data=new_data(); // make the structure.. 
 		if (argv[1][1] == 'l') {
 			printf("Loading in from %s\n", argv[2]);
 			load_data(argv[2], data);	
@@ -29,7 +29,7 @@ int main (int argc, char *argv[]) {
 			beta=atof(argv[4]); // string to floating point (beta)
 			blank_system(data, atoi(argv[2]), atoi(argv[3])); // strings to integer: m and n
 			init_params(data, 0); // initialize parameters 
-
+			global_length=data->n; // this should be ok, double check. 
 			// try to print some parameters
 			printf("number of samples (m) = %d\n", data->m); // number of samples
 			printf("number of nodes (n) = %d\n", data->n); // number of nodes
@@ -49,10 +49,11 @@ int main (int argc, char *argv[]) {
 			printf("config i = 1, %d\n", config[1]);
 			printf("config j = 3, %d\n", config[3]);
 
-
+			// just scale params in big_list by beta
 			for(i=0;i<data->n_params;i++) { // loop over number of parameters and scale them 
 				data->big_list[i] *= beta; // scale true parameters by beta (sampled with variance = 1)
 			}
+			// change obs[loc] based on glauber 
 			for(i=0;i<data->m;i++) { // loop over number of samples 
 				mcmc_sampler(data, i, data->n*atoi(argv[5]));  // i = location of obs (1, -1), n * iter
 			}
@@ -74,10 +75,12 @@ int main (int argc, char *argv[]) {
 			
 			printf("init=");
 			pretty(data->big_list, data->n_params);
-			saved_list=(double *)malloc(data->n_params*sizeof(double));
-			for(i=0;i<data->n_params;i++) {
-				saved_list[i]=data->big_list[i];
+			saved_list=(double *)malloc(data->n_params*sizeof(double)); // saved list...?
+			for(i=0;i<data->n_params;i++) { // over n params 
+				saved_list[i]=data->big_list[i]; // save params, okay.. 
 			}
+			// I am guessing that the idea is that we could feed real data to this step
+			// the previous work has been simulating it... 
 			init_params(data, 1); // now pretend it's real data, and re-initialize the J_ij and h_i
 			sort_and_filter(data); // remove duplicates from the data, create the nearest neighbour list
 		}
@@ -102,7 +105,6 @@ int main (int argc, char *argv[]) {
 		// }
 		
 		simple_minimizer(data); // minimize, uses compute_k_general (but also below?)
-		
 		compute_k_general(data, 0); // do derivs = 0 (so do not do derivs?)
 
 		// printf("Final: %lf\n", data->k);

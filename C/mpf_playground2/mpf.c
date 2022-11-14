@@ -43,13 +43,13 @@ void convert_01(samples *data) {
 
 int compare_states(const void* a, const void* b) {
 	int i, **arg1, **arg2;
- 	
+ 	// 
 	arg1=(int **)a;
  	arg2=(int **)b;
 	
- 	for(i=0;i<global_length;i++) {
- 		if (arg1[0][i] > arg2[0][i]) return -1;
- 		if (arg1[0][i] < arg2[0][i]) return 1;		
+ 	for(i=0;i<global_length;i++) { // why are we looping here...?
+ 		if (arg1[0][i] > arg2[0][i]) return -1; // does this not break out of the fun?
+ 		if (arg1[0][i] < arg2[0][i]) return 1; // same 
  	}
     return 0;
 }
@@ -68,21 +68,55 @@ void create_near(samples *data) { // creates nearest neighbours, removes duplica
 	int i, j, k, count, pos, **near_temp, count_uniq;
 	
 	if (data->near != NULL) {
+		printf("create_near: data->near != NULL");
 		free(data->near);
 	}
 	
 	data->near=(int **)malloc(data->uniq*data->n*sizeof(int *));	
 	count=0;
-	for(i=0;i<data->uniq;i++) {
-		for(j=0;j<data->n;j++) {
+	// crete near: 
+	printf("(create_near): uniq = %d\n", data->uniq);
+	printf("(create_near): n = %d\n", data->n);
+	//printf("unflipped_near = [");
+	int ii;
+	int jj;
+	/*
+	for(ii=0;ii<data->uniq;ii++){
+		printf("[");
+		for(jj=0;jj<data->n;jj++){
+			printf("%d, ", data->obs[ii][jj]);
+		}
+		printf("]");
+	}
+	printf("]");
+	printf("\n");
+	*/
+	for(i=0;i<data->uniq;i++) { // i in unique ("new observations")
+		for(j=0;j<data->n;j++) { // j in n (number questions)
 			data->near[count]=(int *)malloc(data->n*sizeof(int));
-			for(k=0;k<data->n;k++) {
+			for(k=0;k<data->n;k++) { // j in n (number questions)
 				data->near[count][k]=data->obs[i][k];
 			}
-			data->near[count][j]=flip(data->near[count][j]);
+			//printf("data->near[%d][%d] = %d\n", count, j, data->near[count][j]);
+			data->near[count][j]=flip(data->near[count][j]); // flip something (always the first?)
+			//printf("data->near (flip) [%d][%d] = %d\n", count, j, data->near[count][j]);
 			count++;
 		}
 	}
+	//printf("count = %d\n", count);
+	//printf("n = %d\n", data->n);
+	//printf("uniq = %d\n", data->uniq);
+	printf("flipped_near = [");
+	for(ii=0;ii<count;ii++){
+		printf("[");
+		for(jj=0;jj<data->n;jj++){
+			//printf("ii = %d");
+			printf("%d, ", data->near[ii][jj]); // 
+		}
+		printf("]");
+	}
+	printf("]");
+	printf("\n");
 	// while(count < (2*data->uniq*data->n)) {
 	// 	data->near[count]=(int *)malloc(data->n*sizeof(int));
 	// 	for(i=0;i<data->n;i++) {
@@ -90,8 +124,24 @@ void create_near(samples *data) { // creates nearest neighbours, removes duplica
 	// 	}
 	// 	count++;
 	// }
-	qsort(data->near, data->uniq*data->n, sizeof(int **), compare_states);
 
+	// now we qsort it based on compare_states 
+	qsort(data->near, data->uniq*data->n, sizeof(int **), compare_states);
+	// again, cannot see what this does....?
+	// is this 
+	printf("flipped_near_q = [");
+	for(ii=0;ii<count;ii++){
+		printf("[");
+		for(jj=0;jj<data->n;jj++){
+			//printf("ii = %d");
+			printf("%d, ", data->near[ii][jj]); // 
+		}
+		printf("]");
+	}
+	printf("]");
+	printf("\n");
+
+	// get number of uniq: 
 	count_uniq=1;
 	i=1;
 	while(i<(data->uniq*data->n)) {
@@ -100,23 +150,34 @@ void create_near(samples *data) { // creates nearest neighbours, removes duplica
 		}
 		i++;
 	}
+	printf("count_uniq: %d\n", count_uniq);
 	near_temp=(int **)malloc(count_uniq*sizeof(int *));
 	data->near_uniq=count_uniq;
 
 	i=0;
 	pos=1;
 	near_temp[0]=data->near[0];
-	while(pos<data->uniq*data->n) { 
+	printf("data->uniq = %d\n", data->uniq); // 3 (unique data states - not necessarily true)
+	printf("data->n = %d\n", data->n); // 3 (number of questions - is correct)
+	while(pos<data->uniq*data->n) {  // uniq * n (e.g. 9)
 		if (compare_simple(data->near[pos], data->near[pos-1], data->n) != 0) { // if the current one is different from the previous one then...
 			i++; // increment the counter...
 			near_temp[i]=data->near[pos]; // save the new one...
 		}
 		pos++;
 	}
-	free(data->near); // so fucking edgy
-	data->near=near_temp;
+	printf("i = %d\n", i);
+	for(j=0;j<i;j++){
+		for(k=0;k<data->n;k++){
+			printf("%d, ", near_temp[j][k]);
+		}
+		printf("\n");
+	}
+	free(data->near); // clear again
+	data->near=near_temp; // 
 
-	if (data->near_ok != NULL) {
+	if (data->near_ok != NULL) { // we do not enter this at the moment. 
+		printf("data->near_ok != NULL");
 		free(data->near_ok);
 	}
 	data->near_ok=(int *)malloc(data->near_uniq*sizeof(int *));
@@ -127,32 +188,96 @@ void sort_and_filter(samples *data) {
 	// then it is going to recompute the nearest neighbours...
 	int i, j, count_uniq, pos, multiplicity;
 	int **obs_temp;
-	
+
+	// obs gets sorted here, but how? 
+	// also, why do we have four observations?
+	printf("obs_before_q=[");
+	for(i=0;i<data->m;i++){
+		printf("[");
+		for(j=0;j<data->n-1;j++){
+			printf("%d, ", data->obs[i][j]);
+		}
+		printf("%d]", data->obs[i][data->n-1]);
+	}
+	printf("]");
+	printf("\n");
+
+	// cannot verify that this does anything. 
+	global_length=data->n; // should not be needed here now..  
 	qsort(data->obs, data->m, sizeof(int **), compare_states);
+	// qsort should do something.. 
+
+	printf("obs_after_q=[");
+	for(i=0;i<data->m;i++){
+		printf("[");
+		for(j=0;j<data->n-1;j++){
+			printf("%d, ", data->obs[i][j]);
+		}
+		printf("%d]", data->obs[i][data->n-1]);
+	}
+	printf("]");
+	printf("\n");
+
 	count_uniq=1;
 	i=1;
 	while(i<(data->m)) {
 		if (compare_simple(data->obs[i], data->obs[i-1], data->n) != 0) {
+			//printf("compare simple\n");
+			//printf("obs[i] = %d\n", *(data->obs[i]));
+			//printf("obs[i-1] = %d\n", *(data->obs[i-1]));	
+			//printf("obs[i][j]: ");
+			for(j=0;j<data->n;j++){
+				//printf("%d, ", data->obs[i][j]);
+			}
+			//printf("\n");
+			//printf("obs[i-1][j]: ");
+			for(j=0;j<data->n;j++){
+				//printf("%d, ", data->obs[i-1][j]);
+			}
+			//printf("\n");
 			count_uniq++;
 		}
 		i++;
 	}
+	// I think there is a bug here
+	// we are not finding the right number of unique states 
+	// generally we are over-estimating the number of unique states
+	//printf("count_uniq: %d, i: %d, non-unique: %d\n", count_uniq, i, i-count_uniq);
 			
 	obs_temp=(int **)malloc(count_uniq*sizeof(int *));
 	data->uniq=count_uniq;
 	
-	if (data->mult != NULL) {
-		free(data->mult);
+	if (data->mult != NULL) { // when would this not be the case?
+		printf("data->mult != NULL");
+		free(data->mult); // free up the memory allocation 
 	}
+	// mult (multiplicity)
 	data->mult=(int *)malloc(count_uniq*sizeof(int *));
-	
+	printf("count_uniq: %d\n", count_uniq);
+	//printf("sizeof(int *): %lu\n", sizeof(int *));
+	//printf("mult: %d\n", *(data->mult)); // not sure how to print this ...
 	i=0;
 	pos=1;
 	multiplicity=1;
 	obs_temp[0]=data->obs[0];
+	// not entirely sure what we do here...?
+	printf("obs[pos][z], where pos = 0: ");
+	int t = 0;
+	for(t=0;t<data->n;t++){
+		printf("%d ,", data->obs[0][t]);
+	}
+	printf("\n");
 	while(pos<data->m) { // need to FIX THIS TKTK
 		if (compare_simple(data->obs[pos], data->obs[pos-1], data->n) != 0) { // if the current one is different from the previous one then...
 			i++; // increment the counter...
+			int z = 0;
+			printf("obs[pos][z], where pos = %d: ", pos);
+			for(z=0;z<data->n;z++){
+				printf("%d, ", data->obs[pos][z]); // why only 3?
+			}
+			printf("\n");
+			//printf("obs[pos], %d\n", *(data->obs[pos]));
+
 			obs_temp[i]=data->obs[pos]; // save the new one...
 			data->mult[i-1]=multiplicity; // save the old multiplicity...
 			multiplicity=0;
@@ -162,42 +287,104 @@ void sort_and_filter(samples *data) {
 	}
 	data->mult[count_uniq-1]=multiplicity;
 		
-	free(data->obs); // so fucking edgy
-	data->obs=obs_temp;
+	free(data->obs); // free obs 
+	data->obs=obs_temp; // assign obs to obs_temp
 	
-	if (data->ei != NULL) {
+	printf("new_obs=[");
+	int k = 0;
+	for(k=0;k<i+1;k++){
+		printf("[");
+		for(j=0;j<data->n-1;j++){
+			printf("%d, ", data->obs[k][j]);
+		}
+		printf("%d]", data->obs[k][data->n-1]);
+	}
+	printf("]");
+	printf("\n");
+
+	if (data->ei != NULL) { // again, when is this not the case
+		printf("data->ei != NULL");
 		free(data->ei);
 	}
 	data->ei=(double *)malloc(data->uniq*sizeof(double));
-			
+	printf("----this is what goes into create_near----\n");
 	create_near(data); // need to create all the one-step NNs
 	// SECOND TO LAST STEP COMING! WE HAVE TO NOW ELIMINATE ALL THE data->near members that have an overlap
-	
 	for(i=0;i<data->near_uniq;i++) {
-		data->near_ok[i]=1;
+		data->near_ok[i]=1; 
 	}
 	i=0;
 	j=0;
-	while((i < data->uniq) && (j < data->near_uniq)) {
+	int xx; // just for troubleshooting
+	// this is where we only remove EQUALS 
+	// ...
+	printf("uniq: %d\n", data->uniq);
+	printf("near_uniq: %d\n", data->near_uniq);
+	while((i < data->uniq) && (j < data->near_uniq)) { 
+		//printf("i = %d\n", i);
+		//printf("j = %d\n", j);
 		if (compare_simple(data->obs[i], data->near[j], data->n) > 0) {
-			i++;
+			/*
+			printf("--- IF----\n");
+			printf("obs for i = %d: ", i);
+			for(xx=0;xx<data->n;xx++){
+				printf("%d, ", data->obs[i][xx]);
+			}
+			printf("\n");
+			printf("near for j = %d: ", j);
+			for(xx=0;xx<data->n;xx++){
+				printf("%d ", data->near[j][xx]);
+			}
+			printf("\n");
+			*/
+			i++; // when obs[i] =! near[j]. 
 		} else {
 			if (compare_simple(data->obs[i], data->near[j], data->n) < 0) {
+				/*
+				printf("--- ELSE IF ----\n");
+				printf("obs for i = %d: ", i);
+				for(xx=0;xx<data->n;xx++){
+					printf("%d, ", data->obs[i][xx]);
+				}
+				printf("\n");
+				printf("near for j = %d: ", j);
+				for(xx=0;xx<data->n;xx++){
+					printf("%d ", data->near[j][xx]);
+				}
+				printf("\n");
+				*/
 				j++;
 			} else {
-				data->near_ok[j]=0;
+				/*
+				printf("--- ELSE ELSE ----\n");
+				printf("obs for i = %d: ", i);
+				for(xx=0;xx<data->n;xx++){
+					printf("%d, ", data->obs[i][xx]);
+				}
+				printf("\n");
+				printf("near for j = %d: ", j);
+				for(xx=0;xx<data->n;xx++){
+					printf("%d ", data->near[j][xx]);
+				}
+				printf("\n");
+				*/
+				data->near_ok[j]=0; // e.g. at 11 (but where do we use this?)
 				i++;
 				j++;
 			}
 		}
 	}	
 	
-	if (data->nei != NULL) {
+	if (data->nei != NULL) { // we do not enter this 
+		printf("data->nei != NULL");
 		free(data->nei);
 	}
+	// assign nei
 	data->nei=(double *)malloc(data->near_uniq*sizeof(double));
-	
+	//printf("nei = %p\n", data->nei);	
+	// assign ratio
 	data->ratio=ceil((double)data->near_uniq/(double)data->uniq);
+	printf("ratio = %d\n", data->ratio);
 }
 
 samples *new_data() {
@@ -290,7 +477,7 @@ void blank_system(samples *data, int m, int n) {
 		data->n_blanks[i]=0;
 		data->blanks[i]=NULL;
 		for(j=0;j<data->n;j++) {
-			data->obs[i][j]=(2*gsl_rng_uniform_int(data->r, 2)-1);
+			data->obs[i][j]=(2*gsl_rng_uniform_int(data->r, 2)-1);  
 			data->obs_raw[i][j]=data->obs[i][j];
 		}
 	}
@@ -370,20 +557,21 @@ void init_params(samples *data, int fit_data) {
 	double running;
 	gsl_rng *r;
 	
-	if (data->big_list == NULL) { // when will this be true/false?
-		printf("we are here\n");
+	if (data->big_list == NULL) { // we do enter this 
+		printf("big list IS NULL \n");
 		data->big_list=(double *)malloc(data->n_params*sizeof(double));
 		data->dk=(double *)malloc(data->n_params*sizeof(double));
 		r=data->r;
 		
 		for(i=0;i<data->m;i++) { // m = number samples (religions)
-			if (data->n_blanks[i] > 0) { // ?
-				for(j=0;j<data->n_blanks[i];j++) { // n_blanks?
+			if (data->n_blanks[i] > 0) { // ...
+				printf("BLANKS DETECTED"); // we do not get this 
+				for(j=0;j<data->n_blanks[i];j++) { // probably to handle blanks
 					data->obs[i][data->blanks[i][j]] = (2*gsl_rng_uniform_int(r, 2)-1); // randomly set the initial data to -1, 1
 				}
 			}
 		}
-
+		// ij 
 		data->ij=(int **)malloc(data->n*sizeof(int *));
 		for(i=0;i<data->n;i++) {
 			data->ij[i]=(int *)malloc(data->n*sizeof(int));
@@ -401,6 +589,7 @@ void init_params(samples *data, int fit_data) {
 	// guess the initial correlations as the J_ijs etc.
 	if (fit_data == 1) {
 		printf("fit data == 1\n");
+		// here we are looping over h
 		for(i=0;i<data->n;i++) {
 			data->big_list[data->h_offset+i] = 0; // set h to the mean value...
 			for(d=0;d<data->m;d++) {
@@ -408,8 +597,10 @@ void init_params(samples *data, int fit_data) {
 			}
 			data->big_list[data->h_offset+i] = data->big_list[data->h_offset+i]/data->m; // + gsl_rng_uniform(r)/10.0;
 		}
+		// here we are looping over Jij. 
 		for(i=0;i<(data->n-1);i++) {
 			for(j=(i+1);j<data->n;j++) {
+				//printf("(i, j) = (%d, %d)\n", i, j);
 				running=0;
 				for(d=0;d<data->m;d++) {
 					running += (data->obs[d][i]-data->big_list[data->h_offset+i])*(data->obs[d][j]-data->big_list[data->h_offset+j]);
@@ -418,6 +609,7 @@ void init_params(samples *data, int fit_data) {
 			}
 		}		
 	} else {
+		printf("init: not fitting data");
 		for(i=0;i<data->n_params;i++) {
 			data->big_list[i]=gsl_ran_gaussian(r, 1.0);
 		}
@@ -433,20 +625,24 @@ void compute_k_general(samples *data, int do_derivs) { //
 		
 	ij=data->ij; // save typing
 		
-	if (do_derivs == 1) {
+	if (do_derivs == 1) { // this is true
 		for(i=0;i<data->n_params;i++) {
-			data->dk[i]=0;
+			data->dk[i]=0; // 
 		}		
 	}
 	
 	//printf("uniq = %d\n", data->uniq); // this changes...?
 	for(d=0;d<data->uniq;d++) { // for each unique datapoint...
-		config=data->obs[d];
-		data->ei[d]=0;
+		config=data->obs[d]; // set config equal to the row from obs (is obs uniq, probably - because we set it so)
+		data->ei[d]=0; // for each unique row in data set ei = 0
 		count=0;
+		// loop over all comb. e.g. for n = 3: 
+		// (0, 1), (0, 2), (1, 2)
 		for(i=0;i<data->n;i++) { // for i in number of nodes (questions)
 			for(j=(i+1);j<data->n;j++) { // for j in 
-				data->ei[d] += (double)config[i]*(double)config[j]*data->big_list[count];
+				//printf("i = %d", i);
+				//printf("j = %d", j);
+				data->ei[d] += (double)config[i]*(double)config[j]*data->big_list[count]; 
 				count++;
 			}
 			data->ei[d] += (double)config[i]*data->big_list[data->h_offset+i]; // local fields
@@ -454,6 +650,7 @@ void compute_k_general(samples *data, int do_derivs) { //
 		data->ei[d] *= -1; // defined as the negative value in Jascha paper
 	}
 
+	// same thing for nei 
 	for(d=0;d<data->near_uniq;d++) { // for each unique nearest neighbour...
 		if (data->near_ok[d] == 1) {
 			config=data->near[d];
@@ -470,38 +667,47 @@ void compute_k_general(samples *data, int do_derivs) { //
 		}	
 	}
 
+	// max val (very small)
 	max_val=-1e300;
-	for(d=0;d<data->uniq;d++) {
-		for(n=0;n<data->near_uniq;n++) {
-			if ((data->ei[d]-data->nei[n]) > max_val) {
-				max_val=(data->ei[d]-data->nei[n]);
+	for(d=0;d<data->uniq;d++) { // data states 
+		for(n=0;n<data->near_uniq;n++) { // neighboring states
+			if ((data->ei[d]-data->nei[n]) > max_val) { // energy of data state higher than in neighbor state.
+				max_val=(data->ei[d]-data->nei[n]); // this becomes a new threshold (largest potential improv.?)
 			}
 		}
 	}	
 	
 	data->k=0;
 	running=0;
-	max_val=max_val/2.0;
-	for(d=0;d<data->uniq;d++) {
-		config1=data->obs[d];
+	max_val=max_val/2.0; // making the step size gradually smaller?
+	for(d=0;d<data->uniq;d++) { // looping over uniq data states
+		config1=data->obs[d]; // config becomes that row 
+		// obs[d] still a pointer to whole row..
 		// for(n=0;n<data->near_uniq;n++) { // edit this to restrict the number of NNs considered for each datapoint
 		term=MIN(data->near_uniq,(d+1)*data->ratio);
-		for(n=d*data->ratio;n<term;n++) {
-			if (data->near_ok[n] == 1) {
-				config2=data->near[n];
-				multiplier=data->mult[d]*exp(0.5*(data->ei[d]-data->nei[n])-max_val);
-				data->k += multiplier;
+		//printf("data->near_uniq: %d\n", data->near_uniq);
+		//printf("(d+1)*data->ratio: %d\n", (d+1)*data->near_uniq);
+		//printf("d*data->ratio: %d\n", d*data->ratio);
+		for(n=d*data->ratio;n<term;n++) { // e.g. 0, 3, 6... (then term will be 3, 6, 9, ...)
+			if (data->near_ok[n] == 1) { // if the neighbor state was ok. 
+				config2=data->near[n]; // assign to config2
+				multiplier=data->mult[d]*exp(0.5*(data->ei[d]-data->nei[n])-max_val); 
+				// mult: whether there are multiple observations of this unique state?
+				// (0.5 * (energy_i - energy_j) - max_val)
+				data->k += multiplier; // count up the energy (sum)
 				
 				// hard part -- do the derivatives
 				if (do_derivs == 1) {
 					count=0;
-					for(ip=0;ip<(data->n);ip++) {
-						for(jp=(ip+1);jp<data->n;jp++) {
+					// here we are doing the Jij
+					for(ip=0;ip<(data->n);ip++) { // for each question (still witin one uniq state)
+						for(jp=(ip+1);jp<data->n;jp++) { // all of the combinations
 							data->dk[count] += -1*(config1[ip]*config1[jp]-config2[ip]*config2[jp])*multiplier/2.0;  
 							// defined as the negative value in Jascha paper -- BUT: note that Jascha was off by a factor of 1/2, Eddie fixed it
 							count++;
 						}
 					}
+					// here we are doing the hi
 					for(ip=0;ip<(data->n);ip++) {
 						data->dk[data->h_offset+ip] += -1*(config1[ip]-config2[ip])*multiplier/2.0;  // defined as the negative value in Jascha paper
 					}
@@ -510,11 +716,14 @@ void compute_k_general(samples *data, int do_derivs) { //
 			}
 		}
 	}
-	data->k = (data->k/data->m)*exp(max_val);
-	
-	if (do_derivs == 1) {
-		for(i=0;i<data->n_params;i++) {
-			data->dk[i]=(data->dk[i]/data->m)*exp(max_val);
+	// k = energy/number * exp(max_val)
+	data->k = (data->k/data->m)*exp(max_val); // try to minimize k (here we set the prior/sparsity.)
+
+	if (do_derivs == 1) { // should be yes
+		for(i=0;i<data->n_params;i++) { // loop over all parameters
+			data->dk[i]=(data->dk[i]/data->m)*exp(max_val); // previous dk[i]/m * max_val
+			// so we are normalizing over all observed samples
+			// then exp(max_val): how high was the maximum "error"?
 		}
 	}
 }
@@ -659,8 +868,8 @@ void simple_minimizer(samples *data) {
 	k_func.params = (void *)data; // not sure how to read this
 	
 	x = gsl_vector_alloc(data->n_params); // vector allocated with size n_params
-	for(i=0;i<data->n_params;i++) {
-		gsl_vector_set(x, i, data->big_list[i]); // set value of ith element to big_list[i]
+	for(i=0;i<data->n_params;i++) { // loop over n_params
+		gsl_vector_set(x, i, data->big_list[i]); // set value of ith element to big_list[i] 
 	}
 	T = gsl_multimin_fdfminimizer_conjugate_fr; // Fletcher-Reeves conjugate gradient alg. 
 	T = gsl_multimin_fdfminimizer_vector_bfgs2; // efficient bfgs implementation
