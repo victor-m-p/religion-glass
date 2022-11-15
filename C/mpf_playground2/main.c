@@ -29,7 +29,6 @@ int main (int argc, char *argv[]) {
 			beta=atof(argv[4]); // string to floating point (beta)
 			blank_system(data, atoi(argv[2]), atoi(argv[3])); // strings to integer: m and n
 			init_params(data, 0); // initialize parameters 
-			global_length=data->n; // this should be ok, double check. 
 			// try to print some parameters
 			printf("number of samples (m) = %d\n", data->m); // number of samples
 			printf("number of nodes (n) = %d\n", data->n); // number of nodes
@@ -105,7 +104,7 @@ int main (int argc, char *argv[]) {
 		// }
 		
 		simple_minimizer(data); // minimize, uses compute_k_general (but also below?)
-		compute_k_general(data, 0); // do derivs = 0 (so do not do derivs?)
+		compute_k_general(data, 0); // don't do derivs.. not sure..?
 
 		// printf("Final: %lf\n", data->k);
 		printf("final=");

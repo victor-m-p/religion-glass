@@ -1,0 +1,53 @@
+https://www.youtube.com/watch?v=PnuiYbeTcQ4
+
+# first call latency (probably don't want to do this)
+julia -O1 
+julia -O2
+
+julia -O1 less optimized. 
+Not all codes benefit from -O2 which is the (slower) default. 
+basically lower optimization, e.g. -O1 gives faster compile time,
+but can make the code run slower (this is sometimes a good trade-off). 
+
+# why is Python faster? (e.g. loading a module). 
+Python is much faster (i.e. loading NumPy) because it doesn't do JIT compilation. 
+It runs things interpreted, so no type inference and optimizations steps, etc. 
+So julia is slower on start-up, and first call, because it is compiling - 
+but then it is much faster afterwards. 
+
+# Prevent specialization
+f(@nospecialize(x)) 
+generic input type, which makes compilation faster - but excecution slower (not frequently used).
+
+# Latency of packages
+standard packages load VERY fast. 
+
+The approach is sysimage (a Julia-session serialized to a file). 
+There is a file called sys.dylib with the compiled (serialized) standard packages. 
+This takes up a lot of space, but is the reason that this is so fast (to deserialize).
+
+This also helps with first call latency. 
+
+# Solution
+## For packages 
+creating sysimage with PackageCompiler.jl
+
+using PackageCompiler 
+@time create_sysimage([:Plots]; sysimage_path="sysimage_plots.dylib")
+
+## For specific workflows (might not be needed)
+@time create_sysimage(
+    :Plots; 
+    sysimage_path="sysimage_plots_precompiled.dylib", 
+    precompile_execution_file="precompile_plot.jl) // specific file 
+
+drawbacks: 
+locks the package version (and dependencies)
+slow to create the sysimage. 
+
+# Packages to check 
+* Revise.jl (especially)
+* OhMyREPL.jl 
+* Debugger.jl 
+
+# Creating an app 

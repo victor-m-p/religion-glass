@@ -51,7 +51,7 @@ typedef struct {
 	
 	double *ei; 
 	// (sort_and_filter): allocated to size of uniq 
-	// (compute_k_general): I think this is the energy for each uniq observed state in the data. 
+	// (compute_k_general): This is the energy for each uniq observed state in the data. 
 	double *nei; 
 	// (sort_and_filter): allocated to siez of near_uniq 
 	// (compute_k_general): Same as ei but for all of the neighbor states 

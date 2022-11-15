@@ -624,14 +624,15 @@ void compute_k_general(samples *data, int do_derivs) { //
 	double max_val, *ei, energy, running, multiplier;
 		
 	ij=data->ij; // save typing
-		
+	printf("compute k\n");
 	if (do_derivs == 1) { // this is true
+		printf("doing derivs\n");
 		for(i=0;i<data->n_params;i++) {
-			data->dk[i]=0; // 
+			data->dk[i]=0; // set all derivatives to 0 (otherwise keep).  
 		}		
 	}
 	
-	//printf("uniq = %d\n", data->uniq); // this changes...?
+	// ENERGY: EQUATION 10 in CONIII 
 	for(d=0;d<data->uniq;d++) { // for each unique datapoint...
 		config=data->obs[d]; // set config equal to the row from obs (is obs uniq, probably - because we set it so)
 		data->ei[d]=0; // for each unique row in data set ei = 0
@@ -667,17 +668,20 @@ void compute_k_general(samples *data, int do_derivs) { //
 		}	
 	}
 
-	// max val (very small)
-	max_val=-1e300;
+	// 
+	max_val=-1e300; // very large negative number 
 	for(d=0;d<data->uniq;d++) { // data states 
 		for(n=0;n<data->near_uniq;n++) { // neighboring states
 			if ((data->ei[d]-data->nei[n]) > max_val) { // energy of data state higher than in neighbor state.
 				max_val=(data->ei[d]-data->nei[n]); // this becomes a new threshold (largest potential improv.?)
+				//printf("max val = %f\n", max_val); // can become 
+				//printf("ei = %f\n", data->ei[d]);
+				//printf("nei: = %f\n", data->nei[n]);
 			}
 		}
 	}	
 	
-	data->k=0;
+	data->k=0; // K(theta) MPF paper. what we want to minimize 
 	running=0;
 	max_val=max_val/2.0; // making the step size gradually smaller?
 	for(d=0;d<data->uniq;d++) { // looping over uniq data states
@@ -717,7 +721,12 @@ void compute_k_general(samples *data, int do_derivs) { //
 		}
 	}
 	// k = energy/number * exp(max_val)
+	//printf("k before norm = %f\n", data->k);
+	//printf("m = %d\n", data->m);
+	//printf("exp(max_val) = %f\n", exp(max_val));
 	data->k = (data->k/data->m)*exp(max_val); // try to minimize k (here we set the prior/sparsity.)
+	//printf("k after norm = %f\n", data->k);
+	
 
 	if (do_derivs == 1) { // should be yes
 		for(i=0;i<data->n_params;i++) { // loop over all parameters
@@ -820,10 +829,10 @@ double k_function(const gsl_vector *v, void *params) {
 	samples *data;
 	
 	data=(samples *)params;
-	for(i=0;i<data->n_params;i++) {
-		data->big_list[i]=gsl_vector_get(v, i);
+	for(i=0;i<data->n_params;i++) { // for each param. 
+		data->big_list[i]=gsl_vector_get(v, i); // return ith element of vector v. 
 	}
-	compute_k_general(data, 0);
+	compute_k_general(data, 0); // compute k general without derivs. takes class where the list is now a vector
 	
 	return data->k;
 }
@@ -844,6 +853,7 @@ void dk_function(const gsl_vector *v, void *params, gsl_vector *df) {
 }
 	
 void kdk_function(const gsl_vector *x, void *params, double *f, gsl_vector *df) {
+	printf("running kdk\n");
     *f = k_function(x, params);
     dk_function(x, params, df);
 }
@@ -862,7 +872,7 @@ void simple_minimizer(samples *data) {
 
 	// set up the system
 	k_func.n = data->n_params;  // number of function components (number of params)
-	k_func.f = &k_function;
+	k_func.f = &k_function; // I can only see that it is defined, but not used...  
 	k_func.df = &dk_function;
 	k_func.fdf = &kdk_function;
 	k_func.params = (void *)data; // not sure how to read this
@@ -875,7 +885,7 @@ void simple_minimizer(samples *data) {
 	T = gsl_multimin_fdfminimizer_vector_bfgs2; // efficient bfgs implementation
 	s = gsl_multimin_fdfminimizer_alloc(T, data->n_params); // pointer to allocated instance of T for n-dim func.
 	
-	compute_k_general(data, 1); // return to this 
+	compute_k_general(data, 1); // one pass, calculating k and derivs of k.  
 
 	// printf("Initial %lf\n", data->k);
 	// for(i=0;i<data->n_params;i++) {
@@ -884,14 +894,18 @@ void simple_minimizer(samples *data) {
 	// printf("\n");
 
 	gsl_multimin_fdfminimizer_set(s, &k_func, x, 0.1, 1e-4);
+	// initialize minimizer s to minimize finction fdf starting from point x
+	// 
 
 	prev=1e300;
 	do {
+		printf("entered loop");
 		iter++;
-		status = gsl_multimin_fdfminimizer_iterate(s);
+		printf("about to do one iteration\n");
+		status = gsl_multimin_fdfminimizer_iterate(s); 
 		// here is where we would re-simulate the missing data
 
-		status = gsl_multimin_test_gradient(s->gradient, 1e-4);
+		status = gsl_multimin_test_gradient(s->gradient, 1e-4); // if gradient really low (why this value?)
 		
 		// printf ("%i %li (%lf) : ", status, iter, s->f);
 		// for(i=0;i<data->n_params;i++) {
@@ -907,9 +921,9 @@ void simple_minimizer(samples *data) {
 			break;
 		}
 		prev=s->f;
-	} while (status == GSL_CONTINUE && iter < 1000);
+	} while (status == GSL_CONTINUE && iter < 1000); // what, hard set iter here?
 
-	compute_k_general(data, 0);
+	compute_k_general(data, 0); // compute k without gradient
 	for(i=0;i<data->n_params;i++) {
 		data->big_list[i]=gsl_vector_get(s->x, i);
 	}

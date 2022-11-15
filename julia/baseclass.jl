@@ -31,10 +31,12 @@ mutable struct Circle
     radius::Real
 end 
 
+# this does what we'll want 
 function Circle_const(s::Samp)
     s.length = s.length+1
 end 
 
+# 
 function main()
     p = Samp()
     println(p.length)
