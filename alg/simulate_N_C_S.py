@@ -31,19 +31,13 @@ def main(N, C, S):
     solver = MPF(sample)
     solver.solve()
     
-    ## save stuff
-    def write_txt_multiline(filename, dataobj): 
-        with open(f"sim_data/{filename}_nodes_{N}_samples_{C}_scale_{S}.txt", "w") as txt_file:
-            for line in dataobj: 
-                txt_file.write(str(line) + "\n")
-
     ## take the data out: 
     solver_mult = solver.multipliers
     
-    ## write data
-    write_txt_multiline("samples", sample)
-    write_txt_multiline("hJ", hJ)
-    write_txt_multiline("mulitipliers", solver_mult)
+    ## save stuff
+    np.savetxt(f"sim_data/samples_nodes_{N}_samples_{C}_scale_{S}.txt", sample.astype(int), fmt="%i")
+    np.savetxt(f"sim_data/hJ_nodes_{N}_samples_{C}_scale_{S}.txt", hJ)
+    np.savetxt(f"sim_data/multipliers_nodes_{N}_samples_{C}_scale_{S}.txt", solver_mult)
 
 if __name__ == '__main__':
     ap = argparse.ArgumentParser()

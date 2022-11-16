@@ -30,13 +30,13 @@ int main (int argc, char *argv[]) {
 			blank_system(data, atoi(argv[2]), atoi(argv[3])); // strings to integer: m and n
 			init_params(data, 0); // initialize parameters 
 			// try to print some parameters
-			printf("number of samples (m) = %d\n", data->m); // number of samples
-			printf("number of nodes (n) = %d\n", data->n); // number of nodes
-			printf("beta (variance) = %f\n", beta); // variance (beta)
-			printf("n params = %d\n", data->n_params); // number of params 
-			printf("big list = %f\n", data->big_list[0]); // list of true params
-			printf("n * iter = %d\n", data->n*atoi(argv[5])); // n * iter (number of sims)
-			printf("uniq = %d\n", data->uniq); // 0 at initialization
+			//printf("number of samples (m) = %d\n", data->m); // number of samples
+			//printf("number of nodes (n) = %d\n", data->n); // number of nodes
+			//printf("beta (variance) = %f\n", beta); // variance (beta)
+			//printf("n params = %d\n", data->n_params); // number of params 
+			//printf("big list = %f\n", data->big_list[0]); // list of true params
+			//printf("n * iter = %d\n", data->n*atoi(argv[5])); // n * iter (number of sims)
+			//printf("uniq = %d\n", data->uniq); // 0 at initialization
 
 			int x;
 			for(x=0;x<4;x++){
@@ -55,8 +55,10 @@ int main (int argc, char *argv[]) {
 			// change obs[loc] based on glauber 
 			for(i=0;i<data->m;i++) { // loop over number of samples 
 				mcmc_sampler(data, i, data->n*atoi(argv[5]));  // i = location of obs (1, -1), n * iter
-			}
-			
+			} 
+			// is it mcmc that simulates data?
+			// very different implementation than what I had 
+
 			/*
 			printf("data=[");
 			for(i=0;i<data->m;i++) {
@@ -73,7 +75,7 @@ int main (int argc, char *argv[]) {
 			*/
 			
 			printf("init=");
-			pretty(data->big_list, data->n_params);
+			pretty(data->big_list, data->n_params); // just prints
 			saved_list=(double *)malloc(data->n_params*sizeof(double)); // saved list...?
 			for(i=0;i<data->n_params;i++) { // over n params 
 				saved_list[i]=data->big_list[i]; // save params, okay.. 

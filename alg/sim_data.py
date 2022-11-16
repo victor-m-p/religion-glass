@@ -82,7 +82,6 @@ def p_dist(h, J):
     
     ## logsumexp
     logsumexp_arr = fast_logsumexp(summed_arr)[0] # where is this function
-    logsumexp_arr
 
     ## last step
     for num, ele in enumerate(list(summed_arr)):

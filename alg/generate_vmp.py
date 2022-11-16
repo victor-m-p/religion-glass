@@ -11,7 +11,7 @@ J = np.random.normal(scale=1.0, size=n*(n-1)//2)
 hJ = np.concatenate((h, J))
 
 p_coniii = ising_eqn_5_sym.p(hJ)
-p_vmp = p_dist(h, J)
+p_vmp2 = p_dist(h, J)
 
 # almost no difference 
 p_dist = [np.abs(x - y) for x, y in zip(p_coniii, p_vmp)]
